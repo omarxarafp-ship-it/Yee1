@@ -50,6 +50,27 @@ const INSTAGRAM_URL = 'https://www.instagram.com/omarxarafp';
 const POWERED_BY = '\n\n_Powered by AppOmar_';
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024;
 
+const ZARCHIVER_PACKAGE = 'ru.zdevs.zarchiver';
+const ZARCHIVER_TUTORIAL = `
+╔══════════════════════════════╗
+║   📦 *طريقة تثبيت ملف XAPK*   ║
+╚══════════════════════════════╝
+
+🔧 *الخطوة 1:* حمّل تطبيق ZArchiver
+   ▸ أرسل كلمة: zarchiver
+
+🔧 *الخطوة 2:* افتح ZArchiver
+   ▸ اذهب لمجلد التحميلات
+
+🔧 *الخطوة 3:* اضغط على ملف XAPK
+   ▸ اختر "View" أو "عرض"
+
+🔧 *الخطوة 4:* اختر ملف APK الرئيسي
+   ▸ اضغط عليه واختر "Install"
+
+✨ *تم التثبيت بنجاح!*
+`;
+
 let pool = null;
 let dbEnabled = false;
 
@@ -437,121 +458,104 @@ async function getUserHistory(phone) {
     }
 }
 
-const USER_AGENTS_LIST = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0',
-];
-
-async function streamDirectToBuffer(directUrl, headers, fileType, appTitle) {
-    const safeTitle = appTitle.replace(/[^\w\s\u0600-\u06FF-]/g, '').trim();
-    const filename = `${safeTitle}.${fileType}`;
-    
-    console.log(`📥 جاري التحميل مباشرة إلى الذاكرة (بدون حفظ على السيرفر)...`);
-    console.log(`   الرابط: ${directUrl.substring(0, 80)}...`);
-    
-    const nodeFetch = (await import('node-fetch')).default;
-    
-    const response = await nodeFetch(directUrl, {
-        method: 'GET',
-        headers: {
-            ...headers,
-            'Host': new URL(directUrl).host
-        },
-        redirect: 'follow',
-        compress: true
-    });
-
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+function formatFileSize(bytes) {
+    if (bytes >= 1024 * 1024 * 1024) {
+        return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    } else if (bytes >= 1024 * 1024) {
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    } else if (bytes >= 1024) {
+        return `${(bytes / 1024).toFixed(1)} KB`;
     }
-
-    const contentLength = parseInt(response.headers.get('content-length') || '0');
-    const chunks = [];
-    let downloadedBytes = 0;
-    const startTime = Date.now();
-
-    return new Promise((resolve, reject) => {
-        response.body.on('data', (chunk) => {
-            chunks.push(chunk);
-            downloadedBytes += chunk.length;
-            if (contentLength > 0) {
-                const progress = ((downloadedBytes / contentLength) * 100).toFixed(0);
-                process.stdout.write(`\r   ⬇️  ${(downloadedBytes / 1024 / 1024).toFixed(1)}MB / ${(contentLength / 1024 / 1024).toFixed(1)}MB (${progress}%)`);
-            } else {
-                process.stdout.write(`\r   ⬇️  ${(downloadedBytes / 1024 / 1024).toFixed(1)}MB تم تحميله...`);
-            }
-        });
-
-        response.body.on('end', () => {
-            const buffer = Buffer.concat(chunks);
-            const fileSize = buffer.length;
-            const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
-            const speed = (fileSize / 1024 / 1024 / parseFloat(elapsedTime)).toFixed(2);
-
-            console.log(`\n✅ تم التحميل مباشرة إلى الذاكرة!`);
-            console.log(`   الحجم: ${(fileSize / 1024 / 1024).toFixed(2)} MB | الوقت: ${elapsedTime}s | السرعة: ${speed} MB/s`);
-            
-            resolve({ buffer, filename, size: fileSize, fileType });
-        });
-
-        response.body.on('error', (error) => {
-            console.log(`\n❌ خطأ في التحميل: ${error.message}`);
-            reject(error);
-        });
-    });
+    return `${bytes} bytes`;
 }
 
-async function downloadAPKStream(packageName, appTitle) {
-    const API_URL = process.env.API_URL || 'http://localhost:8000';
-    const nodeFetch = (await import('node-fetch')).default;
+function formatAppInfo(appDetails, fileType, fileSize) {
+    const stars = '⭐'.repeat(Math.min(Math.round(appDetails.score || 0), 5));
+    const emptyStars = '☆'.repeat(5 - Math.min(Math.round(appDetails.score || 0), 5));
+    
+    return `
+╔════════════════════════════════╗
+║      📱 *معلومات التطبيق*       ║
+╠════════════════════════════════╣
+║
+║  📌 *الاسم:* ${appDetails.title}
+║
+║  📦 *الحزمة:* \`${appDetails.appId}\`
+║
+║  👨‍💻 *المطور:* ${appDetails.developer || 'غير معروف'}
+║
+║  📊 *التقييم:* ${stars}${emptyStars} (${(appDetails.score || 0).toFixed(1)})
+║
+║  📥 *التحميلات:* ${appDetails.installs || 'غير معروف'}
+║
+║  📁 *النوع:* ${fileType.toUpperCase()}
+║
+║  💾 *الحجم:* ${formatFileSize(fileSize)}
+║
+║  🏷️ *الفئة:* ${appDetails.genre || 'غير محدد'}
+║
+╚════════════════════════════════╝`;
+}
 
-    console.log(`📥 جاري التحميل عبر API Server (يتجاوز CloudFlare)...`);
+function formatSearchResults(results) {
+    const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+    
+    let text = `
+╔════════════════════════════════╗
+║       🔍 *نتائج البحث*          ║
+╠════════════════════════════════╣
+`;
+    
+    results.forEach((app, index) => {
+        const emoji = numberEmojis[index];
+        const stars = '⭐'.repeat(Math.min(Math.round(app.score || 0), 5));
+        text += `║\n║  ${emoji} *${app.title}*\n`;
+        text += `║     👨‍💻 ${app.developer || 'غير معروف'}\n`;
+        text += `║     ${stars} (${(app.score || 0).toFixed(1)})\n`;
+    });
+    
+    text += `║\n╠════════════════════════════════╣
+║  📝 *أرسل رقم التطبيق (1-${results.length})*  ║
+╚════════════════════════════════╝`;
+    
+    return text;
+}
+
+async function downloadAPKWithAxios(packageName, appTitle) {
+    const API_URL = process.env.API_URL || 'http://localhost:8000';
+    
+    console.log(`📥 جاري التحميل عبر Axios (أداء محسّن)...`);
     
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
             console.log(`   محاولة ${attempt + 1}/3...`);
             
-            const response = await nodeFetch(`${API_URL}/download/${packageName}`, {
+            const response = await axios({
                 method: 'GET',
-                redirect: 'follow',
-                timeout: 600000
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const contentLength = parseInt(response.headers.get('content-length') || '0');
-            const fileType = response.headers.get('x-file-type') || 'apk';
-            const source = response.headers.get('x-source') || 'apkpure';
-            const chunks = [];
-            let downloadedBytes = 0;
-            const startTime = Date.now();
-
-            await new Promise((resolve, reject) => {
-                response.body.on('data', (chunk) => {
-                    chunks.push(chunk);
-                    downloadedBytes += chunk.length;
-                    if (contentLength > 0) {
-                        const progress = ((downloadedBytes / contentLength) * 100).toFixed(0);
-                        process.stdout.write(`\r   ⬇️  ${(downloadedBytes / 1024 / 1024).toFixed(1)}MB / ${(contentLength / 1024 / 1024).toFixed(1)}MB (${progress}%)`);
+                url: `${API_URL}/download/${packageName}`,
+                responseType: 'arraybuffer',
+                timeout: 600000,
+                maxContentLength: Infinity,
+                maxBodyLength: Infinity,
+                onDownloadProgress: (progressEvent) => {
+                    if (progressEvent.total) {
+                        const progress = ((progressEvent.loaded / progressEvent.total) * 100).toFixed(0);
+                        process.stdout.write(`\r   ⬇️  ${(progressEvent.loaded / 1024 / 1024).toFixed(1)}MB / ${(progressEvent.total / 1024 / 1024).toFixed(1)}MB (${progress}%)`);
+                    } else {
+                        process.stdout.write(`\r   ⬇️  ${(progressEvent.loaded / 1024 / 1024).toFixed(1)}MB تم تحميله...`);
                     }
-                });
-                response.body.on('end', resolve);
-                response.body.on('error', reject);
+                }
             });
             
-            const buffer = Buffer.concat(chunks);
+            const buffer = Buffer.from(response.data);
+            const fileType = response.headers['x-file-type'] || 'apk';
+            const source = response.headers['x-source'] || 'apkpure';
             const fileSize = buffer.length;
-            const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
             
             const safeTitle = appTitle.replace(/[^\w\s\u0600-\u06FF-]/g, '').trim();
             const filename = `${safeTitle}.${fileType}`;
             
-            console.log(`\n✅ تم التحميل من ${source}: ${(fileSize / 1024 / 1024).toFixed(2)} MB في ${elapsedTime}s`);
+            console.log(`\n✅ تم التحميل من ${source}: ${formatFileSize(fileSize)}`);
             
             if (buffer.length > 100000) {
                 return { buffer, filename, size: fileSize, fileType };
@@ -792,20 +796,67 @@ async function handleMessage(sock, remoteJid, userId, senderPhone, text, msg, us
         userSessions.set(userId, session);
     }
 
-    const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+    const lowerText = text.toLowerCase().trim();
 
     if (text === VIP_PASSWORD) {
         vipUsers.add(senderPhone);
         stopDownloadTracking(senderPhone);
         await sendBotMessage(sock, remoteJid, { 
-            text: `🌟 *تم تفعيل الوضع VIP*\n\n✅ أنت الآن عضو VIP!\n✓ تحميل لامحدود بدون قيود\n✓ سرعة تحميل أسرع\n✓ أولوية في الطلبات${POWERED_BY}`
+            text: `
+╔════════════════════════════════╗
+║     🌟 *تم تفعيل وضع VIP*      ║
+╠════════════════════════════════╣
+║                                ║
+║  ✅ أنت الآن عضو VIP!          ║
+║  ✅ تحميل لامحدود              ║
+║  ✅ سرعة أسرع                  ║
+║  ✅ أولوية في الطلبات          ║
+║                                ║
+╚════════════════════════════════╝${POWERED_BY}`
         }, msg);
+        return;
+    }
+
+    if (lowerText === 'zarchiver' || lowerText === 'زارشيفر') {
+        session.state = 'waiting_for_selection';
+        session.searchResults = [{ title: 'ZArchiver', appId: ZARCHIVER_PACKAGE, developer: 'ZDevs', score: 4.5, index: 1 }];
+        userSessions.set(userId, session);
+        
+        await sendBotMessage(sock, remoteJid, { 
+            text: `📦 *جاري تحميل ZArchiver...*${POWERED_BY}`
+        }, msg);
+        
+        await handleAppDownload(sock, remoteJid, userId, senderPhone, msg, ZARCHIVER_PACKAGE, 'ZArchiver', session);
         return;
     }
 
     if (isNewUser && session.firstTime) {
         session.firstTime = false;
-        const welcomeText = `🤖 *مرحباً بك في بوت AppOmar!*\n\n📱 *كيفية الاستخدام:*\n1️⃣ أرسل اسم التطبيق\n2️⃣ اختر من القائمة\n3️⃣ انتظر التحميل\n\n⚠️ *التحذيرات:*\n🔴 حد أقصى 25 رسالة في الساعة\n🔴 حد أقصى 10 تحميلات متسارعة\n🔴 الاتصالات والرسائل الفارغة ممنوعة\n\n✨ *كود خاص:*\nهل تريد تحميل لامحدود؟ اطلب الكود من المطور!\n\n📝 أوامر: /help أو /history${POWERED_BY}`;
+        const welcomeText = `
+╔════════════════════════════════╗
+║   🤖 *مرحباً في بوت AppOmar*   ║
+╠════════════════════════════════╣
+║                                ║
+║  📱 *طريقة الاستخدام:*          ║
+║  ▸ أرسل اسم التطبيق            ║
+║  ▸ اختر من القائمة             ║
+║  ▸ انتظر التحميل               ║
+║                                ║
+╠════════════════════════════════╣
+║  ⚠️ *التحذيرات:*                ║
+║  ▸ 25 رسالة/ساعة كحد أقصى     ║
+║  ▸ 10 تحميلات متسارعة         ║
+║  ▸ الاتصالات ممنوعة            ║
+║                                ║
+╠════════════════════════════════╣
+║  📝 *الأوامر المتاحة:*          ║
+║  ▸ /help - المساعدة            ║
+║  ▸ /commands - كل الأوامر      ║
+║  ▸ /history - سجل التحميلات    ║
+║  ▸ /ping - فحص البوت           ║
+║  ▸ /info - معلومات البوت       ║
+║                                ║
+╚════════════════════════════════╝${POWERED_BY}`;
         await sendBotMessage(sock, remoteJid, { text: welcomeText }, msg);
     }
 
@@ -815,15 +866,21 @@ async function handleMessage(sock, remoteJid, userId, senderPhone, text, msg, us
         if (text === '/stats' || text.startsWith('/stats')) {
             const stats = await getStats();
             if (stats) {
-                let statsMsg = `📊 *إحصائيات البوت*\n\n`;
-                statsMsg += `👥 المستخدمين: ${stats.totalUsers}\n`;
-                statsMsg += `📥 التحميلات: ${stats.totalDownloads}\n`;
-                statsMsg += `📅 تحميلات اليوم: ${stats.todayDownloads}\n`;
-                statsMsg += `💾 الحجم الكلي: ${(stats.totalSize / (1024 * 1024 * 1024)).toFixed(2)} GB\n`;
-                statsMsg += `🚫 المحظورين: ${stats.blockedUsers}\n\n`;
-                statsMsg += `🔥 *أكثر التطبيقات تحميلاً:*\n`;
-                stats.topApps.forEach((app, i) => { statsMsg += `${i + 1}. ${app.app_name} (${app.count})\n`; });
-                statsMsg += POWERED_BY;
+                let statsMsg = `
+╔════════════════════════════════╗
+║      📊 *إحصائيات البوت*        ║
+╠════════════════════════════════╣
+║                                ║
+║  👥 المستخدمين: ${stats.totalUsers}
+║  📥 التحميلات: ${stats.totalDownloads}
+║  📅 تحميلات اليوم: ${stats.todayDownloads}
+║  💾 الحجم الكلي: ${(stats.totalSize / (1024 * 1024 * 1024)).toFixed(2)} GB
+║  🚫 المحظورين: ${stats.blockedUsers}
+║                                ║
+╠════════════════════════════════╣
+║  🔥 *أكثر التطبيقات تحميلاً:*   ║`;
+                stats.topApps.forEach((app, i) => { statsMsg += `\n║  ${i + 1}. ${app.app_name} (${app.count})`; });
+                statsMsg += `\n║                                ║\n╚════════════════════════════════╝${POWERED_BY}`;
                 await sendBotMessage(sock, remoteJid, { text: statsMsg }, msg);
             } else {
                 await sendBotMessage(sock, remoteJid, { text: `❌ قاعدة البيانات غير متصلة${POWERED_BY}` }, msg);
@@ -860,42 +917,161 @@ async function handleMessage(sock, remoteJid, userId, senderPhone, text, msg, us
         }
 
         if (text === '/admin') {
-            const adminHelp = `🔧 *أوامر المطور*\n\n` +
-                `/stats - إحصائيات البوت\n` +
-                `/broadcast [رسالة] - إرسال رسالة للجميع\n` +
-                `/block [رقم] - حظر رقم\n` +
-                `/unblock [رقم] - إلغاء حظر رقم\n` +
-                `/admin - قائمة الأوامر${POWERED_BY}`;
+            const adminHelp = `
+╔════════════════════════════════╗
+║      🔧 *أوامر المطور*          ║
+╠════════════════════════════════╣
+║                                ║
+║  /stats - إحصائيات البوت       ║
+║  /broadcast [رسالة] - إرسال    ║
+║  /block [رقم] - حظر            ║
+║  /unblock [رقم] - إلغاء حظر    ║
+║  /admin - هذه القائمة          ║
+║                                ║
+╚════════════════════════════════╝${POWERED_BY}`;
             await sendBotMessage(sock, remoteJid, { text: adminHelp }, msg);
             return;
         }
     }
 
-    if (text === '/help' || text === 'مساعدة') {
-        const helpText = `🤖 *مرحباً بك في بوت AppOmar*\n\n` +
-            `📱 *كيفية الاستخدام:*\n` +
-            `1️⃣ أرسل اسم التطبيق الذي تريده\n` +
-            `2️⃣ اختر رقم التطبيق من القائمة\n` +
-            `3️⃣ انتظر التحميل\n\n` +
-            `📝 *الأوامر:*\n` +
-            `/help - المساعدة\n` +
-            `/history - سجل تحميلاتك\n\n` +
-            `📸 تابعني:\n${INSTAGRAM_URL}${POWERED_BY}`;
+    if (lowerText === '/help' || lowerText === 'مساعدة' || lowerText === 'help') {
+        const helpText = `
+╔════════════════════════════════╗
+║   🤖 *بوت AppOmar للتطبيقات*   ║
+╠════════════════════════════════╣
+║                                ║
+║  📱 *طريقة الاستخدام:*          ║
+║  1️⃣ أرسل اسم التطبيق           ║
+║  2️⃣ اختر رقم من القائمة        ║
+║  3️⃣ انتظر التحميل والإرسال     ║
+║                                ║
+╠════════════════════════════════╣
+║  📝 *الأوامر:*                  ║
+║  ▸ /help - المساعدة            ║
+║  ▸ /commands - كل الأوامر      ║
+║  ▸ /history - سجل التحميلات    ║
+║  ▸ /ping - فحص البوت           ║
+║  ▸ /info - معلومات البوت       ║
+║                                ║
+╠════════════════════════════════╣
+║  📸 تابعني على انستجرام:        ║
+║  ${INSTAGRAM_URL}
+║                                ║
+╚════════════════════════════════╝${POWERED_BY}`;
         await sendBotMessage(sock, remoteJid, { text: helpText }, msg);
         return;
     }
 
-    if (text === '/history' || text === 'سجلي') {
+    if (lowerText === '/commands' || lowerText === 'الاوامر' || lowerText === 'اوامر') {
+        const commandsText = `
+╔════════════════════════════════╗
+║      📋 *قائمة الأوامر*         ║
+╠════════════════════════════════╣
+║                                ║
+║  🔍 *البحث والتحميل:*           ║
+║  ▸ [اسم التطبيق] - للبحث       ║
+║  ▸ zarchiver - تحميل زارشيفر   ║
+║                                ║
+╠════════════════════════════════╣
+║  📊 *المعلومات:*                ║
+║  ▸ /help - المساعدة            ║
+║  ▸ /commands - الأوامر         ║
+║  ▸ /history - سجل التحميلات    ║
+║  ▸ /ping - فحص سرعة البوت      ║
+║  ▸ /info - معلومات البوت       ║
+║  ▸ /dev - التواصل مع المطور    ║
+║                                ║
+╠════════════════════════════════╣
+║  💡 *نصائح:*                    ║
+║  ▸ أرسل اسم التطبيق بالإنجليزية ║
+║  ▸ يمكنك إرسال package name    ║
+║  ▸ اطلب كود VIP للتحميل المفتوح║
+║                                ║
+╚════════════════════════════════╝${POWERED_BY}`;
+        await sendBotMessage(sock, remoteJid, { text: commandsText }, msg);
+        return;
+    }
+
+    if (lowerText === '/ping' || lowerText === 'بينج') {
+        const startTime = Date.now();
+        await sendBotMessage(sock, remoteJid, { 
+            text: `
+╔════════════════════════════════╗
+║         🏓 *PONG!*              ║
+╠════════════════════════════════╣
+║                                ║
+║  ⚡ السرعة: ${Date.now() - startTime}ms
+║  ✅ الحالة: متصل               ║
+║  🤖 البوت يعمل بشكل طبيعي      ║
+║                                ║
+╚════════════════════════════════╝${POWERED_BY}`
+        }, msg);
+        return;
+    }
+
+    if (lowerText === '/info' || lowerText === 'معلومات') {
+        const infoText = `
+╔════════════════════════════════╗
+║      ℹ️ *معلومات البوت*         ║
+╠════════════════════════════════╣
+║                                ║
+║  📱 الاسم: AppOmar Bot         ║
+║  📦 الإصدار: 3.0.0             ║
+║  👨‍💻 المطور: Omar               ║
+║  🌐 المصدر: APKPure            ║
+║                                ║
+╠════════════════════════════════╣
+║  📊 *الإمكانيات:*               ║
+║  ▸ تحميل APK و XAPK            ║
+║  ▸ بحث في Google Play          ║
+║  ▸ إرسال الملفات مباشرة        ║
+║                                ║
+╚════════════════════════════════╝${POWERED_BY}`;
+        await sendBotMessage(sock, remoteJid, { text: infoText }, msg);
+        return;
+    }
+
+    if (lowerText === '/dev' || lowerText === 'المطور' || lowerText === 'تواصل') {
+        const devText = `
+╔════════════════════════════════╗
+║      👨‍💻 *التواصل مع المطور*    ║
+╠════════════════════════════════╣
+║                                ║
+║  📸 انستجرام:                   ║
+║  ${INSTAGRAM_URL}
+║                                ║
+║  💬 للاستفسارات والاقتراحات    ║
+║  🌟 للحصول على كود VIP         ║
+║                                ║
+╚════════════════════════════════╝${POWERED_BY}`;
+        await sendBotMessage(sock, remoteJid, { text: devText }, msg);
+        return;
+    }
+
+    if (lowerText === '/history' || lowerText === 'سجلي' || lowerText === 'history') {
         const history = await getUserHistory(senderPhone);
         if (history.length === 0) {
-            await sendBotMessage(sock, remoteJid, { text: `📭 لا يوجد سجل تحميلات${POWERED_BY}` }, msg);
+            await sendBotMessage(sock, remoteJid, { 
+                text: `
+╔════════════════════════════════╗
+║      📭 *لا يوجد سجل*           ║
+╠════════════════════════════════╣
+║                                ║
+║  لم تقم بتحميل أي تطبيق بعد    ║
+║  ابدأ بإرسال اسم تطبيق للبحث   ║
+║                                ║
+╚════════════════════════════════╝${POWERED_BY}`
+            }, msg);
         } else {
-            let historyText = `📜 *سجل تحميلاتك:*\n\n`;
+            let historyText = `
+╔════════════════════════════════╗
+║      📜 *سجل تحميلاتك*          ║
+╠════════════════════════════════╣`;
             history.forEach((item, i) => {
                 const date = new Date(item.created_at).toLocaleDateString('ar-EG');
-                historyText += `${i + 1}. ${item.app_name} (${item.file_type}) - ${date}\n`;
+                historyText += `\n║  ${i + 1}. ${item.app_name}\n║     📁 ${item.file_type.toUpperCase()} | 📅 ${date}`;
             });
-            historyText += POWERED_BY;
+            historyText += `\n║                                ║\n╚════════════════════════════════╝${POWERED_BY}`;
             await sendBotMessage(sock, remoteJid, { text: historyText }, msg);
         }
         return;
@@ -913,13 +1089,29 @@ async function handleMessage(sock, remoteJid, userId, senderPhone, text, msg, us
                 try {
                     const appDetails = await gplay.app({ appId: text.trim() });
                     results = [appDetails];
-                } catch { results = await gplay.search({ term: text, num: 10 }); }
+                } catch { 
+                    results = await gplay.search({ term: text, num: 10, country: 'us', language: 'en' }); 
+                }
             } else {
-                results = await gplay.search({ term: text, num: 10 });
+                results = await gplay.search({ term: text, num: 10, country: 'us', language: 'en' });
             }
 
             if (results.length === 0) {
-                await sendBotMessage(sock, remoteJid, { text: `❌ لم أجد نتائج لـ "${text}"${POWERED_BY}` }, msg);
+                await sendBotMessage(sock, remoteJid, { 
+                    text: `
+╔════════════════════════════════╗
+║      ❌ *لا توجد نتائج*         ║
+╠════════════════════════════════╣
+║                                ║
+║  لم أجد نتائج لـ "${text}"     ║
+║                                ║
+║  💡 جرب:                        ║
+║  ▸ البحث بالإنجليزية           ║
+║  ▸ تصحيح الأخطاء الإملائية     ║
+║  ▸ استخدام اسم مختصر           ║
+║                                ║
+╚════════════════════════════════╝${POWERED_BY}`
+                }, msg);
                 return;
             }
 
@@ -935,13 +1127,7 @@ async function handleMessage(sock, remoteJid, userId, senderPhone, text, msg, us
             session.searchResults = [...cleanResults];
             session.state = 'waiting_for_selection';
 
-            let resultText = `🔍 *نتائج البحث:*\n\n`;
-            cleanResults.forEach((app, index) => {
-                const emoji = numberEmojis[index];
-                resultText += `${emoji} ${app.title}\n`;
-            });
-            resultText += `\nارسل رقم التطبيق الذي تريده من 1 الى ${cleanResults.length}`;
-            resultText += POWERED_BY;
+            const resultText = formatSearchResults(cleanResults) + POWERED_BY;
 
             const imageBuffer = await downloadBotProfileImage();
             let sentMsg;
@@ -980,9 +1166,11 @@ async function handleMessage(sock, remoteJid, userId, senderPhone, text, msg, us
                     try {
                         const appDetails = await gplay.app({ appId: text.trim() });
                         results = [appDetails];
-                    } catch { results = await gplay.search({ term: text, num: 10 }); }
+                    } catch { 
+                        results = await gplay.search({ term: text, num: 10, country: 'us', language: 'en' }); 
+                    }
                 } else {
-                    results = await gplay.search({ term: text, num: 10 });
+                    results = await gplay.search({ term: text, num: 10, country: 'us', language: 'en' });
                 }
 
                 if (results.length === 0) {
@@ -1002,13 +1190,7 @@ async function handleMessage(sock, remoteJid, userId, senderPhone, text, msg, us
                 session.searchResults = [...cleanResults];
                 session.state = 'waiting_for_selection';
 
-                let resultText = `🔍 *نتائج البحث:*\n\n`;
-                cleanResults.forEach((app, index) => {
-                    const emoji = numberEmojis[index];
-                    resultText += `${emoji} ${app.title}\n`;
-                });
-                resultText += `\nارسل رقم التطبيق الذي تريده من 1 الى ${cleanResults.length}`;
-                resultText += POWERED_BY;
+                const resultText = formatSearchResults(cleanResults) + POWERED_BY;
 
                 const imageBuffer = await downloadBotProfileImage();
                 let sentMsg;
@@ -1026,119 +1208,139 @@ async function handleMessage(sock, remoteJid, userId, senderPhone, text, msg, us
             return;
         }
 
-        const emoji = numberEmojis[selection - 1];
-        await sock.sendMessage(remoteJid, { react: { text: emoji, key: msg.key } });
-
-        if (session.lastListMessageKey) {
-            try { await sock.sendMessage(remoteJid, { delete: session.lastListMessageKey }); } catch {}
-            session.lastListMessageKey = null;
-        }
-
-        session.isDownloading = true;
-        startDownloadTracking(senderPhone);
-        userSessions.set(userId, session);
-
         const selectedApp = session.searchResults[selection - 1];
-        console.log(`✅ اختيار: ${selectedApp.title} (${selectedApp.appId})`);
+        await handleAppDownload(sock, remoteJid, userId, senderPhone, msg, selectedApp.appId, selectedApp.title, session);
+    }
+}
 
-        let appId = selectedApp.appId;
-        if (!appId) {
-            await sendBotMessage(sock, remoteJid, { text: `❌ خطأ في التطبيق. اختر آخر.${POWERED_BY}` }, msg);
-            session.isDownloading = false;
-            stopDownloadTracking(senderPhone);
-            userSessions.set(userId, session);
-            return;
-        }
+async function handleAppDownload(sock, remoteJid, userId, senderPhone, msg, appId, appTitle, session) {
+    const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+    
+    const selection = session.searchResults.findIndex(app => app.appId === appId) + 1;
+    const emoji = numberEmojis[selection - 1] || '📱';
+    await sock.sendMessage(remoteJid, { react: { text: emoji, key: msg.key } });
 
-        await sock.sendMessage(remoteJid, { react: { text: '⏳', key: msg.key } });
+    if (session.lastListMessageKey) {
+        try { await sock.sendMessage(remoteJid, { delete: session.lastListMessageKey }); } catch {}
+        session.lastListMessageKey = null;
+    }
 
-        try {
-            const appDetails = await gplay.app({ appId: appId });
+    session.isDownloading = true;
+    startDownloadTracking(senderPhone);
+    userSessions.set(userId, session);
 
-            if (appDetails.icon) {
-                try {
-                    const iconResponse = await axios.get(appDetails.icon, { 
-                        responseType: 'arraybuffer',
-                        timeout: 10000 
-                    });
-                    const stickerBuffer = await sharp(Buffer.from(iconResponse.data))
-                        .resize(512, 512, {
-                            fit: 'contain',
-                            background: { r: 255, g: 255, b: 255, alpha: 0 }
-                        })
-                        .webp()
-                        .toBuffer();
-                    await sendBotMessage(sock, remoteJid, {
-                        sticker: stickerBuffer
-                    }, msg);
-                } catch (iconError) {
-                    console.log('⚠️ فشل إرسال الأيقونة كملصق:', iconError.message);
-                }
-            }
+    console.log(`✅ اختيار: ${appTitle} (${appId})`);
 
-            await sock.sendMessage(remoteJid, { react: { text: '📥', key: msg.key } });
+    if (!appId) {
+        await sendBotMessage(sock, remoteJid, { text: `❌ خطأ في التطبيق. اختر آخر.${POWERED_BY}` }, msg);
+        session.isDownloading = false;
+        stopDownloadTracking(senderPhone);
+        userSessions.set(userId, session);
+        return;
+    }
 
-            const apkStream = await downloadAPKStream(appDetails.appId, appDetails.title);
+    await sock.sendMessage(remoteJid, { react: { text: '⏳', key: msg.key } });
 
-            if (apkStream) {
-                if (apkStream.size > MAX_FILE_SIZE) {
-                    await sock.sendMessage(remoteJid, { react: { text: '❌', key: msg.key } });
-                    await sendBotMessage(sock, remoteJid, { 
-                        text: `❌ *حجم الملف كبير جداً*\n\nحجم التطبيق: ${(apkStream.size / (1024 * 1024 * 1024)).toFixed(2)} GB\nالحد الأقصى: 2 GB\n\nجرب تطبيق آخر.${POWERED_BY}`
-                    }, msg);
-                    session.state = 'waiting_for_search';
-                    session.isDownloading = false;
-                    session.searchResults = [];
-                    stopDownloadTracking(senderPhone);
-                    userSessions.set(userId, session);
-                    return;
-                }
+    try {
+        const appDetails = await gplay.app({ appId: appId });
 
-                await sock.sendMessage(remoteJid, { react: { text: '✅', key: msg.key } });
-
-                const isXapk = apkStream.fileType === 'xapk';
-                await logDownload(senderPhone, appDetails.appId, appDetails.title, apkStream.fileType, apkStream.size);
-
-                let caption = `Package: ${appDetails.appId}\n`;
-                caption += `Size: ${(apkStream.size / (1024 * 1024)).toFixed(1)} MB\n`;
-                caption += `Dev: ${appDetails.developer || 'Unknown'}`;
-                caption += POWERED_BY;
-
-                if (isXapk) {
-                    caption += `\n\nطريقة التثبيت:\n`;
-                    caption += `1. حمل تطبيق mt manager من البوت\n`;
-                    caption += `2. افتح ملف XAPK بواسطة mt manager\n`;
-                    caption += `3. اضغط على التطبيق الذي قمت بتحميله\n`;
-                    caption += `4. اختر "تثبيت او install" من القائمة`;
-                }
-
+        if (appDetails.icon) {
+            try {
+                const iconResponse = await axios.get(appDetails.icon, { 
+                    responseType: 'arraybuffer',
+                    timeout: 10000 
+                });
+                const stickerBuffer = await sharp(Buffer.from(iconResponse.data))
+                    .resize(512, 512, {
+                        fit: 'contain',
+                        background: { r: 255, g: 255, b: 255, alpha: 0 }
+                    })
+                    .webp()
+                    .toBuffer();
                 await sendBotMessage(sock, remoteJid, {
-                    document: apkStream.buffer,
-                    mimetype: isXapk ? 'application/octet-stream' : 'application/vnd.android.package-archive',
-                    fileName: apkStream.filename,
-                    caption: caption
+                    sticker: stickerBuffer
                 }, msg);
+            } catch (iconError) {
+                console.log('⚠️ فشل إرسال الأيقونة كملصق:', iconError.message);
+            }
+        }
 
-                await sendBotMessage(sock, remoteJid, { text: `تابعني على انستجرام:\ninstagram.com/omarxarafp${POWERED_BY}` }, msg);
+        await sock.sendMessage(remoteJid, { react: { text: '📥', key: msg.key } });
 
-            } else {
-                await sendBotMessage(sock, remoteJid, { text: `❌ فشل التحميل. جرب تطبيق آخر.${POWERED_BY}` }, msg);
+        const apkStream = await downloadAPKWithAxios(appDetails.appId, appDetails.title);
+
+        if (apkStream) {
+            if (apkStream.size > MAX_FILE_SIZE) {
+                await sock.sendMessage(remoteJid, { react: { text: '❌', key: msg.key } });
+                await sendBotMessage(sock, remoteJid, { 
+                    text: `
+╔════════════════════════════════╗
+║      ❌ *حجم كبير جداً*         ║
+╠════════════════════════════════╣
+║                                ║
+║  📦 حجم التطبيق: ${formatFileSize(apkStream.size)}
+║  📊 الحد الأقصى: 2 GB          ║
+║                                ║
+║  💡 جرب تطبيق آخر              ║
+║                                ║
+╚════════════════════════════════╝${POWERED_BY}`
+                }, msg);
+                session.state = 'waiting_for_search';
+                session.isDownloading = false;
+                session.searchResults = [];
+                stopDownloadTracking(senderPhone);
+                userSessions.set(userId, session);
+                return;
             }
 
-            session.state = 'waiting_for_search';
-            session.isDownloading = false;
-            session.searchResults = [];
-            stopDownloadTracking(senderPhone);
-            userSessions.set(userId, session);
-        } catch (error) {
-            console.error('❌ خطأ:', error);
-            await sendBotMessage(sock, remoteJid, { text: `❌ حدث خطأ. حاول مرة أخرى.${POWERED_BY}` }, msg);
-            session.state = 'waiting_for_search';
-            session.isDownloading = false;
-            session.searchResults = [];
-            stopDownloadTracking(senderPhone);
-            userSessions.set(userId, session);
+            await sock.sendMessage(remoteJid, { react: { text: '✅', key: msg.key } });
+
+            const isXapk = apkStream.fileType === 'xapk';
+            await logDownload(senderPhone, appDetails.appId, appDetails.title, apkStream.fileType, apkStream.size);
+
+            const caption = formatAppInfo(appDetails, apkStream.fileType, apkStream.size) + POWERED_BY;
+
+            await sendBotMessage(sock, remoteJid, {
+                document: apkStream.buffer,
+                mimetype: isXapk ? 'application/octet-stream' : 'application/vnd.android.package-archive',
+                fileName: apkStream.filename,
+                caption: caption
+            }, msg);
+
+            if (isXapk) {
+                await sendBotMessage(sock, remoteJid, { 
+                    text: ZARCHIVER_TUTORIAL + POWERED_BY
+                }, msg);
+            }
+
+            await sendBotMessage(sock, remoteJid, { 
+                text: `
+╔════════════════════════════════╗
+║      📸 *تابعني على انستجرام*   ║
+╠════════════════════════════════╣
+║                                ║
+║  ${INSTAGRAM_URL}
+║                                ║
+╚════════════════════════════════╝${POWERED_BY}` 
+            }, msg);
+
+        } else {
+            await sendBotMessage(sock, remoteJid, { text: `❌ فشل التحميل. جرب تطبيق آخر.${POWERED_BY}` }, msg);
         }
+
+        session.state = 'waiting_for_search';
+        session.isDownloading = false;
+        session.searchResults = [];
+        stopDownloadTracking(senderPhone);
+        userSessions.set(userId, session);
+    } catch (error) {
+        console.error('❌ خطأ:', error);
+        await sendBotMessage(sock, remoteJid, { text: `❌ حدث خطأ. حاول مرة أخرى.${POWERED_BY}` }, msg);
+        session.state = 'waiting_for_search';
+        session.isDownloading = false;
+        session.searchResults = [];
+        stopDownloadTracking(senderPhone);
+        userSessions.set(userId, session);
     }
 }
 
