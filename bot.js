@@ -70,8 +70,7 @@ function getZArchiverTutorial(fileName) {
 📥 لتحميل ZArchiver أرسل: zarchiver`;
 }
 
-const ZARCHIVER_TUTORIAL_BASIC = `
-📦 *طريقة تثبيت ملف XAPK*
+const ZARCHIVER_TUTORIAL_BASIC = `📦 *طريقة تثبيت ملف XAPK*
 
 ← افتح الملف بواسطة ZArchiver
 ← ارجع للخلف بعد فتح الملف
@@ -488,10 +487,12 @@ function formatAppInfo(appDetails, fileType, fileSize) {
 }
 
 function formatSearchResults(results) {
+    const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
     let text = `🔍 *نتائج البحث*\n\n`;
     
     results.forEach((app, index) => {
-        text += `${index + 1}→ ${app.title}\n`;
+        const emoji = numberEmojis[index] || `${index + 1}→`;
+        text += `${emoji} → ${app.title}\n`;
     });
     
     text += `\n📝 أرسل رقم التطبيق (1-${results.length})`;
@@ -819,43 +820,25 @@ async function handleMessage(sock, remoteJid, userId, senderPhone, text, msg, us
 
     if (isNewUser && session.firstTime) {
         session.firstTime = false;
-        const welcomeText = `╔═══════════════════╗
-║  🤖 *بوت AppOmar*  ║
-╚═══════════════════╝
+        const welcomeText = `🤖 *بوت AppOmar*
 
-👋 *أهلاً ${userName}*
-
-━━━━━━━━━━━━━━━━━━━━━
+👋 أهلاً ${userName}
 
 📱 *طريقة الاستخدام:*
-
-1️⃣ أرسل اسم التطبيق
-2️⃣ اختر الرقم من القائمة
-3️⃣ انتظر التحميل والإرسال
-
-━━━━━━━━━━━━━━━━━━━━━
+← أرسل اسم التطبيق
+← اختر الرقم من القائمة
+← انتظر التحميل والإرسال
 
 📋 *الأوامر المتاحة:*
-
 → /help - دليل المساعدة
 → /commands - جميع الأوامر
 → /history - سجل تحميلاتك
 → zarchiver - تحميل زارشيفر
 
-━━━━━━━━━━━━━━━━━━━━━
-
 📸 تابعني:
 ${INSTAGRAM_URL}${POWERED_BY}`;
         
-        const imageBuffer = await downloadBotProfileImage();
-        if (imageBuffer) {
-            await sendBotMessage(sock, remoteJid, { 
-                image: imageBuffer, 
-                caption: welcomeText 
-            }, msg);
-        } else {
-            await sendBotMessage(sock, remoteJid, { text: welcomeText }, msg);
-        }
+        await sendBotMessage(sock, remoteJid, { text: welcomeText }, msg);
     }
 
     if (isAdmin) {
@@ -1295,9 +1278,8 @@ async function handleAppDownload(sock, remoteJid, userId, senderPhone, msg, appI
             }, msg);
 
             if (isXapk) {
-                const tutorialText = getZArchiverTutorial(apkStream.filename);
                 await sendBotMessage(sock, remoteJid, { 
-                    text: tutorialText + POWERED_BY
+                    text: ZARCHIVER_TUTORIAL_BASIC + POWERED_BY
                 }, msg);
             }
 
