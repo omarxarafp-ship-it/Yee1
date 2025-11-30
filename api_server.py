@@ -678,4 +678,4 @@ async def clear_cache():
     return {"status": "cache_cleared", "source": "apkpure"}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info", workers=1)
+    uvicorn.run(app, host="localhost", port=8000, log_level="info", workers=1)
