@@ -51,7 +51,26 @@ const POWERED_BY = '\n\n_Powered by AppOmar_';
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024;
 
 const ZARCHIVER_PACKAGE = 'ru.zdevs.zarchiver';
-const ZARCHIVER_TUTORIAL = `
+function getZArchiverTutorial(fileName) {
+    return `📦 *طريقة تثبيت ملف XAPK*
+
+━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣ افتح الملف بواسطة ZArchiver
+2️⃣ ارجع للخلف بعد فتح الملف
+3️⃣ ستجد الملف باسم:
+   📁 *${fileName}*
+4️⃣ اضغط على الملف
+5️⃣ اختر "تثبيت" أو "Install"
+
+━━━━━━━━━━━━━━━━━━━━━
+
+💡 *ملاحظة:* تأكد من تفعيل خيار "مصادر غير معروفة" في إعدادات هاتفك
+
+📥 لتحميل ZArchiver أرسل: zarchiver`;
+}
+
+const ZARCHIVER_TUTORIAL_BASIC = `
 📦 *طريقة تثبيت ملف XAPK*
 
 ← افتح الملف بواسطة ZArchiver
@@ -800,17 +819,43 @@ async function handleMessage(sock, remoteJid, userId, senderPhone, text, msg, us
 
     if (isNewUser && session.firstTime) {
         session.firstTime = false;
-        const welcomeText = `🤖 *مرحباً في بوت AppOmar*
+        const welcomeText = `╔═══════════════════╗
+║  🤖 *بوت AppOmar*  ║
+╚═══════════════════╝
+
+👋 *أهلاً ${userName}*
+
+━━━━━━━━━━━━━━━━━━━━━
 
 📱 *طريقة الاستخدام:*
-→ أرسل اسم التطبيق
-→ اختر من القائمة
-→ انتظر التحميل
 
-📝 *الأوامر:*
-→ /help - المساعدة
-→ /commands - كل الأوامر${POWERED_BY}`;
-        await sendBotMessage(sock, remoteJid, { text: welcomeText }, msg);
+1️⃣ أرسل اسم التطبيق
+2️⃣ اختر الرقم من القائمة
+3️⃣ انتظر التحميل والإرسال
+
+━━━━━━━━━━━━━━━━━━━━━
+
+📋 *الأوامر المتاحة:*
+
+→ /help - دليل المساعدة
+→ /commands - جميع الأوامر
+→ /history - سجل تحميلاتك
+→ zarchiver - تحميل زارشيفر
+
+━━━━━━━━━━━━━━━━━━━━━
+
+📸 تابعني:
+${INSTAGRAM_URL}${POWERED_BY}`;
+        
+        const imageBuffer = await downloadBotProfileImage();
+        if (imageBuffer) {
+            await sendBotMessage(sock, remoteJid, { 
+                image: imageBuffer, 
+                caption: welcomeText 
+            }, msg);
+        } else {
+            await sendBotMessage(sock, remoteJid, { text: welcomeText }, msg);
+        }
     }
 
     if (isAdmin) {
@@ -878,38 +923,97 @@ async function handleMessage(sock, remoteJid, userId, senderPhone, text, msg, us
     }
 
     if (lowerText === '/help' || lowerText === 'مساعدة' || lowerText === 'help') {
-        const helpText = `🤖 *بوت AppOmar للتطبيقات*
+        const helpText = `╔═══════════════════╗
+║  📖 *دليل المساعدة*  ║
+╚═══════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━
 
 📱 *طريقة الاستخدام:*
-1→ أرسل اسم التطبيق
-2→ اختر رقم من القائمة
-3→ انتظر التحميل
 
-📝 *الأوامر:*
-→ /help - المساعدة
-→ /commands - كل الأوامر
-→ /history - سجل التحميلات
+1️⃣ أرسل اسم التطبيق الذي تريده
+2️⃣ اختر رقم التطبيق من القائمة
+3️⃣ انتظر التحميل والإرسال
 
-📸 ${INSTAGRAM_URL}${POWERED_BY}`;
-        await sendBotMessage(sock, remoteJid, { text: helpText }, msg);
+━━━━━━━━━━━━━━━━━━━━━
+
+📝 *الأوامر المتاحة:*
+
+→ /help - دليل المساعدة
+→ /commands - جميع الأوامر
+→ /history - سجل تحميلاتك
+→ /ping - فحص البوت
+→ /info - معلومات البوت
+→ /dev - التواصل مع المطور
+→ zarchiver - تحميل زارشيفر
+
+━━━━━━━━━━━━━━━━━━━━━
+
+💡 *نصائح:*
+• ابحث بالإنجليزية للحصول على نتائج أفضل
+• ملفات XAPK تحتاج ZArchiver للتثبيت
+• يمكنك البحث باسم الحزمة مباشرة
+
+━━━━━━━━━━━━━━━━━━━━━
+
+📸 تابعني على انستجرام:
+${INSTAGRAM_URL}${POWERED_BY}`;
+        
+        const imageBuffer = await downloadBotProfileImage();
+        if (imageBuffer) {
+            await sendBotMessage(sock, remoteJid, { 
+                image: imageBuffer, 
+                caption: helpText 
+            }, msg);
+        } else {
+            await sendBotMessage(sock, remoteJid, { text: helpText }, msg);
+        }
         return;
     }
 
     if (lowerText === '/commands' || lowerText === 'الاوامر' || lowerText === 'اوامر') {
-        const commandsText = `📋 *قائمة الأوامر*
+        const commandsText = `╔═══════════════════╗
+║  📋 *قائمة الأوامر*  ║
+╚═══════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━
 
 🔍 *البحث والتحميل:*
-→ [اسم التطبيق] - للبحث
-→ zarchiver - تحميل زارشيفر
 
-📊 *المعلومات:*
-→ /help - المساعدة
-→ /commands - الأوامر
-→ /history - سجل التحميلات
-→ /ping - فحص البوت
-→ /info - معلومات البوت
-→ /dev - التواصل مع المطور${POWERED_BY}`;
-        await sendBotMessage(sock, remoteJid, { text: commandsText }, msg);
+→ [اسم التطبيق] - للبحث عن تطبيق
+→ zarchiver - تحميل برنامج زارشيفر
+
+━━━━━━━━━━━━━━━━━━━━━
+
+📊 *المعلومات والإحصائيات:*
+
+→ /help - دليل المساعدة الكامل
+→ /commands - عرض هذه القائمة
+→ /history - سجل تحميلاتك الأخيرة
+→ /ping - فحص سرعة البوت
+→ /info - معلومات عن البوت
+→ /dev - التواصل مع المطور
+
+━━━━━━━━━━━━━━━━━━━━━
+
+💬 *أمثلة للاستخدام:*
+
+• WhatsApp
+• Minecraft
+• Free Fire
+• com.example.app (اسم الحزمة)
+
+${POWERED_BY}`;
+        
+        const imageBuffer = await downloadBotProfileImage();
+        if (imageBuffer) {
+            await sendBotMessage(sock, remoteJid, { 
+                image: imageBuffer, 
+                caption: commandsText 
+            }, msg);
+        } else {
+            await sendBotMessage(sock, remoteJid, { text: commandsText }, msg);
+        }
         return;
     }
 
@@ -1191,8 +1295,9 @@ async function handleAppDownload(sock, remoteJid, userId, senderPhone, msg, appI
             }, msg);
 
             if (isXapk) {
+                const tutorialText = getZArchiverTutorial(apkStream.filename);
                 await sendBotMessage(sock, remoteJid, { 
-                    text: ZARCHIVER_TUTORIAL + POWERED_BY
+                    text: tutorialText + POWERED_BY
                 }, msg);
             }
 
