@@ -1,0 +1,31 @@
+{
+  "name": "appomar-whatsapp-bot",
+  "version": "2.0.0",
+  "main": "bot.js",
+  "type": "module",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node bot.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "apk",
+    "downloader"
+  ],
+  "author": "AppOmar",
+  "license": "ISC",
+  "description": "Professional WhatsApp bot for downloading APK files",
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "adm-zip": "^0.5.16",
+    "axios": "^1.13.2",
+    "google-play-scraper": "^10.1.2",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.16.3",
+    "pino": "^10.1.0",
+    "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.34.5"
+  }
+}
