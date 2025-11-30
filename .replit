@@ -28,3 +28,8 @@ args = "bash -c \"python3 api_server.py & node bot.js\""
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[ports]]
+localPort = 8000
+externalPort = 80
+exposeLocalhost = true
