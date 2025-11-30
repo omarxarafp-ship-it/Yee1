@@ -52,24 +52,31 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024;
 
 const ZARCHIVER_PACKAGE = 'ru.zdevs.zarchiver';
 const ZARCHIVER_TUTORIAL = `
-╔══════════════════════════════╗
-║   📦 *طريقة تثبيت ملف XAPK*   ║
-╚══════════════════════════════╝
-
-🔧 *الخطوة 1:* حمّل تطبيق ZArchiver
-   ▸ أرسل كلمة: zarchiver
-
-🔧 *الخطوة 2:* افتح ZArchiver
-   ▸ اذهب لمجلد التحميلات
-
-🔧 *الخطوة 3:* اضغط على ملف XAPK
-   ▸ اختر "View" أو "عرض"
-
-🔧 *الخطوة 4:* اختر ملف APK الرئيسي
-   ▸ اضغط عليه واختر "Install"
-
-✨ *تم التثبيت بنجاح!*
-`;
+╔═══════════════════════════════════╗
+║    📦 *طريقة تثبيت ملف XAPK*      ║
+╠═══════════════════════════════════╣
+║                                   ║
+║  🔹 *الخطوة 1:*                    ║
+║     افتح الملف بواسطة ZArchiver   ║
+║                                   ║
+║  🔹 *الخطوة 2:*                    ║
+║     ارجع للخلف بعد فتح الملف      ║
+║     ستجد الملف باسمه              ║
+║                                   ║
+║  🔹 *الخطوة 3:*                    ║
+║     اضغط على الملف                ║
+║                                   ║
+║  🔹 *الخطوة 4:*                    ║
+║     اختر "تثبيت" أو "Install"     ║
+║                                   ║
+╠═══════════════════════════════════╣
+║  ✅ *تم التثبيت بنجاح!*            ║
+╠═══════════════════════════════════╣
+║                                   ║
+║  📥 لتحميل ZArchiver أرسل:        ║
+║     zarchiver                     ║
+║                                   ║
+╚═══════════════════════════════════╝`;
 
 let pool = null;
 let dbEnabled = false;
@@ -524,7 +531,7 @@ function formatSearchResults(results) {
 async function downloadAPKWithAxios(packageName, appTitle) {
     const API_URL = process.env.API_URL || 'http://localhost:8000';
     
-    console.log(`📥 جاري التحميل عبر Axios (أداء محسّن)...`);
+    console.log(`📥 جاري التحميل عبر Axios (Streaming)...`);
     
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -533,29 +540,44 @@ async function downloadAPKWithAxios(packageName, appTitle) {
             const response = await axios({
                 method: 'GET',
                 url: `${API_URL}/download/${packageName}`,
-                responseType: 'arraybuffer',
+                responseType: 'stream',
                 timeout: 600000,
                 maxContentLength: Infinity,
-                maxBodyLength: Infinity,
-                onDownloadProgress: (progressEvent) => {
-                    if (progressEvent.total) {
-                        const progress = ((progressEvent.loaded / progressEvent.total) * 100).toFixed(0);
-                        process.stdout.write(`\r   ⬇️  ${(progressEvent.loaded / 1024 / 1024).toFixed(1)}MB / ${(progressEvent.total / 1024 / 1024).toFixed(1)}MB (${progress}%)`);
-                    } else {
-                        process.stdout.write(`\r   ⬇️  ${(progressEvent.loaded / 1024 / 1024).toFixed(1)}MB تم تحميله...`);
-                    }
-                }
+                maxBodyLength: Infinity
             });
             
-            const buffer = Buffer.from(response.data);
             const fileType = response.headers['x-file-type'] || 'apk';
             const source = response.headers['x-source'] || 'apkpure';
+            const contentLength = parseInt(response.headers['content-length'] || '0');
+            
+            const chunks = [];
+            let downloadedBytes = 0;
+            const startTime = Date.now();
+            
+            await new Promise((resolve, reject) => {
+                response.data.on('data', (chunk) => {
+                    chunks.push(chunk);
+                    downloadedBytes += chunk.length;
+                    if (contentLength > 0) {
+                        const progress = ((downloadedBytes / contentLength) * 100).toFixed(0);
+                        process.stdout.write(`\r   ⬇️  ${(downloadedBytes / 1024 / 1024).toFixed(1)}MB / ${(contentLength / 1024 / 1024).toFixed(1)}MB (${progress}%)`);
+                    } else {
+                        process.stdout.write(`\r   ⬇️  ${(downloadedBytes / 1024 / 1024).toFixed(1)}MB تم تحميله...`);
+                    }
+                });
+                response.data.on('end', resolve);
+                response.data.on('error', reject);
+            });
+            
+            const buffer = Buffer.concat(chunks);
             const fileSize = buffer.length;
+            const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
+            const speed = (fileSize / 1024 / 1024 / parseFloat(elapsedTime)).toFixed(2);
             
             const safeTitle = appTitle.replace(/[^\w\s\u0600-\u06FF-]/g, '').trim();
             const filename = `${safeTitle}.${fileType}`;
             
-            console.log(`\n✅ تم التحميل من ${source}: ${formatFileSize(fileSize)}`);
+            console.log(`\n✅ تم التحميل من ${source}: ${formatFileSize(fileSize)} | السرعة: ${speed} MB/s`);
             
             if (buffer.length > 100000) {
                 return { buffer, filename, size: fileSize, fileType };
