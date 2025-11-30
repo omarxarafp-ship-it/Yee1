@@ -55,18 +55,15 @@ jobs:
     - name: Start FastAPI (LIVE logs)
       run: |
         pm2 start api_server.py --interpreter python3 --name fastapi
-        pm2 logs fastapi &
-        sleep 6
+        pm2 logs fastapi --lines 100 --follow &  # عرض السجلات مباشرة مع تتبع التحديثات
+        sleep 5  # إيقاف هذه السطر فقط إذا كنت بحاجة للإبقاء على عملية التتبع حيّة
 
     - name: Start WhatsApp Bot (LIVE logs)
       run: |
         pm2 start bot.js --name bot
-        pm2 logs bot &
-        sleep 6
+        pm2 logs bot --lines 100 --follow &  # عرض السجلات مباشرة مع تتبع التحديثات
+        sleep 5  # إيقاف هذه السطر فقط إذا كنت بحاجة للإبقاء على عملية التتبع حيّة
 
     - name: Keep job alive
       run: |
-        while true; do
-          echo "🟢 Bot & API running... $(date)"
-          sleep 60
-        done
+        tail -f /dev/null  # طريقة أفضل للحفاظ على الـ GitHub Actions active بدون استخدام sleep
