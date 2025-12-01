@@ -46,7 +46,7 @@ const logger = pino({ level: 'silent' });
 
 const DEVELOPER_PHONES = ['212718938088', '234905250308102'];
 const BOT_PROFILE_IMAGE_URL = 'https://i.postimg.cc/TPgStdfc/Screenshot-2025-11-25-08-24-05-916-com-openai-chatgpt-edit.jpg';
-const INSTAGRAM_URL = 'https://www.instagram.com/omarxarafp';
+const INSTAGRAM_URL = 'https://www.instagram.com/said91447';
 const POWERED_BY = '\n\n_Powered by AppOmar_';
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024;
 
